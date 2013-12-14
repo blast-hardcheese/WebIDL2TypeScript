@@ -52,20 +52,29 @@ object DocParser extends RegexParsers {
     "ApplicationInformation" |
     "ApplicationId" |
     "ApplicationMetaData" |
+    "ApplicationManagerObject" |
     "ApplicationManager" |
     "Application" |
+    "Event" |
     "CompositeFilterType" |
     "CompositeFilter" |
     "SortModeOrder" |
     "SortMode" |
     "SimpleCoordinates" |
     "PackageId" |
+    "PackageManagerObject" |
+    "PackageManager" |
     "RequestedApplicationControl" |
+    "PackageProgressCallback" |
+    "PackageInformationArraySuccessCallback" |
+    "PackageInformationEventCallback" |
+    "PackageInformation" |
     "ErrorCallback" |
     "FindAppControlSuccessCallback" |
     "FilterMatchFlag" |
     "SuccessCallback" |
     "WebAPIException" |
+    "WebAPIError" |
     "TizenObject" |
     "Tizen"
 
@@ -85,18 +94,18 @@ object DocParser extends RegexParsers {
   val implementation = identifier ~ "implements" ~ identifier ^^ { case i ~ "implements" ~ t => Implementation(i, t) }
 
 
-  val packageProperty = attributes ~> jsType ~ identifier <~ ";" ^^ { case t ~ i => PackageProperty(i, t) }
+  val packageProperty = attributes ~> jsType ~ identifier ^^ { case t ~ i => PackageProperty(i, t) }
   val packageMethodArg = (jsType | optionalType) ~ identifier ^^ { case t ~ n => MethodArgument(n, t) }
   val packageMethodArgs = repsep(packageMethodArg, ",")
-  val packageMethod = jsType ~ identifier ~ "(" ~ packageMethodArgs ~ ")" <~ ";" ^^ {
+  val packageMethod = jsType ~ identifier ~ "(" ~ packageMethodArgs ~ ")" ^^ {
     case t ~ name ~ "(" ~ args ~ ")" => Method(name, args, t)
   }
 
   val module = "module" ~> identifier ~ ("{" ~> rep((enum | typedef | interface | implementation) <~ ";") <~ "};") ^^ {
     case i ~ lines => Module(i, lines)
   }
-  val interfaceExtends = ":" ~ jsType ^^ { case ":" ~ jsType => s": $jsType" }
-  val interface = "[" ~ interfaceBracket ~ "]" ~ "interface" ~> jsType ~ opt(interfaceExtends) ~ "{" ~ rep(const | packageMethod | packageProperty) ~ "}" ^^ {
+  val interfaceExtends = ":" ~> jsType
+  val interface = "[" ~ interfaceBracket ~ "]" ~ "interface" ~> jsType ~ opt(interfaceExtends) ~ "{" ~ rep((const | packageMethod | packageProperty) <~ ";") ~ "}" ^^ {
     case name ~ ie ~ "{" ~ lines ~ "}" => Package(name, lines, ie)
   }
   val interfaceBracketTokens = "NoInterfaceObject"
@@ -126,15 +135,6 @@ object App extends App {
 
   type IndentLevel = Int
 
-  val s = io.Source.fromFile(new java.io.File(args(0))).getLines.mkString("\n")
-
-  println(DocParser.rawApply(s))
-
-  val parsed = DocParser(s)
-
-  println(parsed)
-  println
-
   def transformLines(lines: List[Token])(implicit level: IndentLevel): String = {
     lines.map(line => transform(line)(level + 1)).mkString("\n")
   }
@@ -147,13 +147,27 @@ object App extends App {
     case Implementation(name: String, t: JSType) => s"""${indent}interface $name extends $t {}"""
     case Package(name, lines, None) => s"""interface $name {\n${transformLines(lines)}\n}\n"""
     case Package(name, lines, Some(t)) => s"""interface $name extends $t {\n${transformLines(lines)}\n}\n"""
-
+    case Enum(name: String, enums: List[String]) => s"$indent interface $name extends Number {} // $indent$name: Number // Hack to get enums working kinda" // TODO: Figure out a way to infer the type here
+    case Const(name: String, t: JSType, value: String) => s"""$indent$name: $t; // $value"""
     case Method(name: String, args: List[MethodArgument], t: JSType) => s"""$indent$name(${args.map(transform).mkString(", ")}): $t;"""
     case MethodArgument(name: String, t: JSType) => s"$name: $t"
     case PackageProperty(name: String, t: JSType) => s"$indent$name: $t;"
   }
 
-  val out = transform(parsed)
+  for(arg <- args) {
+    val s = io.Source.fromFile(new java.io.File(arg)).getLines.mkString("\n")
 
-  (new java.io.File(args(0) + ".d.ts")).text = out
+    println(DocParser.rawApply(s))
+
+    val parsed = DocParser(s)
+
+    println(parsed)
+    println
+
+    val out = transform(parsed)
+
+    println(out)
+
+    (new java.io.File(arg + ".d.ts")).text = out
+  }
 }
