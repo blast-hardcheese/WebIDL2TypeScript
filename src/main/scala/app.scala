@@ -1,5 +1,20 @@
 import util.parsing.combinator.RegexParsers
 
+object Types {
+  type JSType = String
+  type TizenType = String
+}
+
+import Types._
+
+case class Typedef(t1: JSType, t2: TizenType)
+case class Module(name: String, lines: List[ModuleElements])
+
+sealed trait ModuleElements
+case class Package(name: String, lines: List[PackageElements])
+
+sealed trait PackageElements
+
 object DocParser extends RegexParsers {
   val identifier = "[a-zA-Z][a-zA-Z0-9]*".r
 
@@ -36,7 +51,7 @@ object DocParser extends RegexParsers {
   }
   val optionalType = "optional" ~> jsType
 
-  val typedef = "typedef" ~> builtinType ~ tizenType ^^ { case t ~ i => s"// $i: $t" }
+  val typedef = "typedef" ~> builtinType ~ tizenType ^^ { case t ~ i => Typedef(t, i) }
   val moduleLine = ( typedef ) <~ ";"
 
   val attribute = "readonly"
