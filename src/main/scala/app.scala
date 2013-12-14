@@ -7,17 +7,19 @@ object Types {
 
 import Types._
 
-case class MethodArgument(name: String, t: JSType)
+sealed trait Token
+
+case class MethodArgument(name: String, t: JSType) extends Token
 case class Method(name: String, args: List[MethodArgument], t: JSType) extends PackageElements
 
-case class Module(name: String, lines: List[ModuleElements])
+case class Module(name: String, lines: List[ModuleElements]) extends Token
 
-sealed trait ModuleElements
+sealed trait ModuleElements extends Token
 case class Typedef(t1: JSType, t2: TizenType) extends ModuleElements
 case class Package(name: String, lines: List[PackageElements]) extends ModuleElements
 case class Implementation(name: String, t: JSType) extends ModuleElements
 
-sealed trait PackageElements
+sealed trait PackageElements extends Token
 
 case class PackageProperty(name: String, t: JSType) extends PackageElements
 
@@ -96,4 +98,17 @@ object App extends App {
   val parsed = DocParser(s)
 
   println(parsed)
+
+  def transform(token: Token): String = token match {
+    case Module(name: String, lines: List[ModuleElements]) => ""
+
+    case MethodArgument(name: String, t: JSType) => ""
+    case Method(name: String, args: List[MethodArgument], t: JSType) => ""
+    case Typedef(t1: JSType, t2: TizenType) => ""
+    case Package(name: String, lines: List[PackageElements]) => ""
+    case Implementation(name: String, t: JSType) => ""
+    case PackageProperty(name: String, t: JSType) => ""
+  }
+
+  println(transform(parsed))
 }
