@@ -7,13 +7,19 @@ object Types {
 
 import Types._
 
-case class Typedef(t1: JSType, t2: TizenType)
+case class MethodArgument(name: String, t: JSType)
+case class Method(name: String, args: List[MethodArgument], t: JSType) extends PackageElements
+
 case class Module(name: String, lines: List[ModuleElements])
 
 sealed trait ModuleElements
-case class Package(name: String, lines: List[PackageElements])
+case class Typedef(t1: JSType, t2: TizenType) extends ModuleElements
+case class Package(name: String, lines: List[PackageElements]) extends ModuleElements
+case class Implementation(name: String, t: JSType) extends ModuleElements
 
 sealed trait PackageElements
+
+case class PackageProperty(name: String, t: JSType) extends PackageElements
 
 object DocParser extends RegexParsers {
   val identifier = "[a-zA-Z][a-zA-Z0-9]*".r
@@ -55,22 +61,22 @@ object DocParser extends RegexParsers {
 
   val attribute = "readonly"
   val attributes = opt(attribute) ~ "attribute"
-  val implementation = identifier ~ "implements" ~ identifier
+  val implementation = identifier ~ "implements" ~ identifier ^^ { case i ~ "implements" ~ t => Implementation(i, t) }
 
 
   val packageLine = rep(packageMethod | packageProperty)
-  val packageProperty = attributes ~> jsType ~ identifier <~ ";" ^^ { case t ~ i => s"$i: $t" }
-  val packageMethodArg = (jsType | optionalType) ~ identifier ^^ { case t ~ n => s"$n: $t" }
-  val packageMethodArgs = repsep(packageMethodArg, ",") ^^ { case args => args.mkString(", ") }
+  val packageProperty = attributes ~> jsType ~ identifier <~ ";" ^^ { case t ~ i => PackageProperty(i, t) }
+  val packageMethodArg = (jsType | optionalType) ~ identifier ^^ { case t ~ n => MethodArgument(n, t) }
+  val packageMethodArgs = repsep(packageMethodArg, ",")
   val packageMethod = jsType ~ identifier ~ "(" ~ packageMethodArgs ~ ")" <~ ";" ^^ {
-    case t ~ name ~ "(" ~ args ~ ")" => s"function $name($args): $t"
+    case t ~ name ~ "(" ~ args ~ ")" => Method(name, args, t)
   }
 
   val module = "module" ~> identifier ~ ("{" ~> rep((typedef | interface | implementation) <~ ";") <~ "};") ^^ {
-    case i ~ lines => i + " {\n" + lines.mkString("\n") + "\n}"
+    case i ~ lines => Module(i, lines)
   }
   val interface = "[" ~ interfaceBracket ~ "]" ~ "interface" ~> identifier ~ "{" ~ packageLine ~ "}" ^^ {
-    case name ~ "{" ~ lines ~ "}" => s"interface $name {\n" + lines.mkString("\n") + "\n}"
+    case name ~ "{" ~ lines ~ "}" => Package(name, lines)
   }
   val interfaceBracketTokens = "NoInterfaceObject"
   val interfaceBracketConstructor = "Constructor(" ~ packageMethodArgs ~ ")"
@@ -283,10 +289,5 @@ module Application {
 };
 """
 
-//  println(DocParser.parseLine(DocParser.optionalType, optional))
-//  println(DocParser.parseLine(DocParser.packageMethodArgs, optionalArgs))
-//  println(DocParser.parseLine(DocParser.packageProperty, "readonly attribute ApplicationManager application;"))
-//  println(DocParser.parseLine(DocParser.packageMethodArgs, packageArgs))
-//  println(DocParser.parseLine(DocParser.packageMethod, method))
   println(DocParser(s))
 }
