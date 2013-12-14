@@ -50,7 +50,8 @@ object DocParser extends RegexParsers {
   val interface = "[" ~ interfaceBracket ~ "]" ~ "interface" ~ identifier ~ "{" ~ packageLine ~ "}" ~ ";"
   val interfaceBracketTokens = "NoInterfaceObject"
   val interfaceBracketConstructor = "Constructor(" ~ packageMethodArgs ~ ")"
-  val interfaceBracket = interfaceBracketTokens | interfaceBracketConstructor
+  val interfaceCallback = "Callback" ~ opt("=FunctionOnly")
+  val interfaceBracket = repsep(interfaceBracketTokens | interfaceBracketConstructor | interfaceCallback, ",")
 
   def parseLine[T](parser: Parser[T], input: String) = parseAll(parser, input)
   def apply(input: String) = parseAll(module, input)
