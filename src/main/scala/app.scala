@@ -30,24 +30,34 @@ object DocParser extends RegexParsers {
     "FindAppControlSuccessCallback" |
     "SuccessCallback"
 
-  val jsType = (builtinType | tizenType) ~ opt("[]") ~ opt("?")
-  val optionalType = "optional" ~ jsType
+  val jsType = (builtinType | tizenType) ~ opt("[]") <~ opt("?") ^^ {
+    case t ~ None => t
+    case t ~ Some(a) => t + a
+  }
+  val optionalType = "optional" ~> jsType
 
   val typedef = "typedef" ~> builtinType ~ tizenType ^^ { case t ~ i => s"// $i: $t" }
   val moduleLine = ( typedef ) <~ ";"
 
   val attribute = "readonly"
   val attributes = opt(attribute) ~ "attribute"
-  val implementation = identifier ~ "implements" ~ identifier ~ ";"
+  val implementation = identifier ~ "implements" ~ identifier <~ ";"
 
 
   val packageLine = rep(packageMethod | packageProperty)
   val packageProperty = attributes ~> jsType ~ identifier <~ ";" ^^ { case t ~ i => s"$i: $t" }
-  val packageMethodArgs = repsep((jsType | optionalType) ~ identifier, ",")
-  val packageMethod = jsType ~ identifier ~ "(" ~ packageMethodArgs ~ ")" ~ ";"
+  val packageMethodArg = (jsType | optionalType) ~ identifier ^^ { case t ~ n => s"$n: $t" }
+  val packageMethodArgs = repsep(packageMethodArg, ",") ^^ { case args => args.mkString(", ") }
+  val packageMethod = jsType ~ identifier ~ "(" ~ packageMethodArgs ~ ")" <~ ";" ^^ {
+    case t ~ name ~ "(" ~ args ~ ")" => s"function $name($args): $t"
+  }
 
-  val module = "module" ~ identifier ~ "{" ~ rep(moduleLine | interface | implementation) ~ "};"
-  val interface = "[" ~ interfaceBracket ~ "]" ~ "interface" ~ identifier ~ "{" ~ packageLine ~ "}" ~ ";"
+  val module = "module" ~> identifier ~ ("{" ~> rep(moduleLine | interface | implementation) <~ "};") ^^ {
+    case i ~ lines => i + " {\n" + lines.mkString("\n") + "\n}"
+  }
+  val interface = "[" ~ interfaceBracket ~ "]" ~ "interface" ~> identifier ~ "{" ~ packageLine ~ "}" <~ ";" ^^ {
+    case name ~ "{" ~ lines ~ "}" => s"interface $name {\n" + lines.mkString("\n") + "\n}"
+  }
   val interfaceBracketTokens = "NoInterfaceObject"
   val interfaceBracketConstructor = "Constructor(" ~ packageMethodArgs ~ ")"
   val interfaceCallback = "Callback" ~ opt("=FunctionOnly")
