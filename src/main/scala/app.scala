@@ -52,11 +52,10 @@ object DocParser extends RegexParsers {
   val optionalType = "optional" ~> jsType
 
   val typedef = "typedef" ~> builtinType ~ tizenType ^^ { case t ~ i => Typedef(t, i) }
-  val moduleLine = ( typedef ) <~ ";"
 
   val attribute = "readonly"
   val attributes = opt(attribute) ~ "attribute"
-  val implementation = identifier ~ "implements" ~ identifier <~ ";"
+  val implementation = identifier ~ "implements" ~ identifier
 
 
   val packageLine = rep(packageMethod | packageProperty)
@@ -67,10 +66,10 @@ object DocParser extends RegexParsers {
     case t ~ name ~ "(" ~ args ~ ")" => s"function $name($args): $t"
   }
 
-  val module = "module" ~> identifier ~ ("{" ~> rep(moduleLine | interface | implementation) <~ "};") ^^ {
+  val module = "module" ~> identifier ~ ("{" ~> rep((typedef | interface | implementation) <~ ";") <~ "};") ^^ {
     case i ~ lines => i + " {\n" + lines.mkString("\n") + "\n}"
   }
-  val interface = "[" ~ interfaceBracket ~ "]" ~ "interface" ~> identifier ~ "{" ~ packageLine ~ "}" <~ ";" ^^ {
+  val interface = "[" ~ interfaceBracket ~ "]" ~ "interface" ~> identifier ~ "{" ~ packageLine ~ "}" ^^ {
     case name ~ "{" ~ lines ~ "}" => s"interface $name {\n" + lines.mkString("\n") + "\n}"
   }
   val interfaceBracketTokens = "NoInterfaceObject"
