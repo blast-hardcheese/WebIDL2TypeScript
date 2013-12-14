@@ -84,7 +84,10 @@ object DocParser extends RegexParsers {
   val interfaceBracket = repsep(interfaceBracketTokens | interfaceBracketConstructor | interfaceCallback, ",")
 
   def parseLine[T](parser: Parser[T], input: String) = parseAll(parser, input)
-  def apply(input: String) = parseAll(module, input)
+  def apply(input: String) = parseAll(module, input) match {
+    case Success(result, _) => result
+    case failure : NoSuccess => scala.sys.error(failure.msg)
+  }
 }
 
 object App extends App {
