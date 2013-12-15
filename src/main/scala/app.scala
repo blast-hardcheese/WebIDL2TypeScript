@@ -108,9 +108,9 @@ object WebIDLConverter {
   def indent()(implicit level: IndentLevel) = "  " * level
 
   def transform(token: Token)(implicit level: IndentLevel = 0): String = token match {
-    case Type(name: String, true, isOptional: Boolean) => s"$name[]"
+    case Type(name: String, isArray@true, _) => s"$name[]"
 
-    case Type(name: String, false, isOptional: Boolean) => name
+    case Type(name: String, isArray@false, _) => name
 
     case Module(name: String, lines: List[ModuleElements]) => transformLines(lines)(-1)
     // -1 here is a workaround to fix the indentation of our collapsed "module" structure. Modules are not
