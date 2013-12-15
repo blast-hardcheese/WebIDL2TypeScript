@@ -25,7 +25,7 @@ sealed trait PackageElements extends Token
 case class PackageProperty(name: String, t: JSType) extends PackageElements
 case class Const(name: String, t: JSType, value: String) extends PackageElements
 
-object DocParser extends RegexParsers {
+class DocParser(types: List[String]) extends RegexParsers {
   val identifier = "[a-zA-Z][a-zA-Z0-9_]*".r
   val number = "[0-9]+(\\.[0-9]+)?".r
 
@@ -35,48 +35,7 @@ object DocParser extends RegexParsers {
 
   val builtinType = jsString | jsNumber | jsPassthrough
 
-  val extendedType =
-    "any" |
-    "AbstractFilter" |
-    "AttributeFilter" |
-    "AttributeRangeFilter" |
-    "ApplicationContextArraySuccessCallback" |
-    "ApplicationContextId" |
-    "ApplicationContext" |
-    "ApplicationControlDataArrayReplyCallback" |
-    "ApplicationControlData" |
-    "ApplicationControl" |
-    "ApplicationCertificate" |
-    "ApplicationInformationEventCallback" |
-    "ApplicationInformationArraySuccessCallback" |
-    "ApplicationInformation" |
-    "ApplicationId" |
-    "ApplicationMetaData" |
-    "ApplicationManagerObject" |
-    "ApplicationManager" |
-    "Application" |
-    "Event" |
-    "CompositeFilterType" |
-    "CompositeFilter" |
-    "SortModeOrder" |
-    "SortMode" |
-    "SimpleCoordinates" |
-    "PackageId" |
-    "PackageManagerObject" |
-    "PackageManager" |
-    "RequestedApplicationControl" |
-    "PackageProgressCallback" |
-    "PackageInformationArraySuccessCallback" |
-    "PackageInformationEventCallback" |
-    "PackageInformation" |
-    "ErrorCallback" |
-    "FindAppControlSuccessCallback" |
-    "FilterMatchFlag" |
-    "SuccessCallback" |
-    "WebAPIException" |
-    "WebAPIError" |
-    "TizenObject" |
-    "Tizen"
+  val extendedType = types.tail.foldLeft[Parser[String]](types.head)({ case (a, next) => a | next })
 
   val jsType = (builtinType | extendedType) ~ opt("[]") <~ opt("?") ^^ {
     case t ~ None => t
@@ -163,10 +122,13 @@ object WebIDLConverter {
 object App extends App {
   import Implicits._
 
-  for(arg <- args) {
+  val extendedTypes = io.Source.fromFile(new java.io.File(args.head)).getLines.toList
+  val parser = new DocParser(extendedTypes)
+
+  for(arg <- args.tail) {
     val s = io.Source.fromFile(new java.io.File(arg)).getLines.mkString("\n")
 
-    val parsed = DocParser(s)
+    val parsed = parser(s)
     val out = WebIDLConverter.transform(parsed)
 
     println(out)
