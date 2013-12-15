@@ -9,20 +9,22 @@ import Types._
 
 sealed trait Token
 
-case class MethodArgument(name: String, t: JSType) extends Token
-case class Method(name: String, args: List[MethodArgument], t: JSType) extends PackageElements
+case class Type(name: String, isArray: Boolean, isOptional: Boolean) extends Token
+
+case class MethodArgument(name: String, t: Type) extends Token
+case class Method(name: String, args: List[MethodArgument], t: Type) extends PackageElements
 
 case class Module(name: String, lines: List[ModuleElements]) extends Token
 
 sealed trait ModuleElements extends Token
 case class Typedef(t1: JSType, t2: ExtendedType) extends ModuleElements
-case class Package(name: String, lines: List[PackageElements], extend: Option[String]) extends ModuleElements
-case class Implementation(name: String, t: JSType) extends ModuleElements
+case class Package(name: Type, lines: List[PackageElements], extend: Option[Type]) extends ModuleElements
+case class Implementation(name: Type, t: Type) extends ModuleElements
 case class Enum(name: String, defs: List[String]) extends ModuleElements
 
 sealed trait PackageElements extends Token
 
-case class PackageProperty(name: String, t: JSType) extends PackageElements
+case class PackageProperty(name: String, t: Type) extends PackageElements
 case class Const(name: String, t: JSType, value: String) extends PackageElements
 
 class DocParser(types: List[String]) extends RegexParsers {
@@ -37,11 +39,12 @@ class DocParser(types: List[String]) extends RegexParsers {
 
   val extendedType = types.tail.foldLeft[Parser[String]](types.head)({ case (a, next) => a | next })
 
-  val jsType = (builtinType | extendedType) ~ opt("[]") <~ opt("?") ^^ {
-    case t ~ None => t
-    case t ~ Some(a) => t + a
+  val jsType = (builtinType | extendedType) ~ opt("[]") ~ opt("?") ^^ {
+    case t ~ a ~ opt => Type(t, ! a.isEmpty, ! opt.isEmpty)
   }
-  val optionalType = "optional" ~> jsType
+  val optionalType = "optional" ~> jsType ^^ {
+    case t: Type => t.copy(isOptional = true)
+  }
 
   val enumString = "\"[A-Z_]+\"".r
   val enum = "enum" ~> identifier ~ "{" ~ repsep(enumString, ",") ~ "}" ^^ { case name ~ "{" ~ defs ~ "}" => Enum(name, defs) }
@@ -50,7 +53,7 @@ class DocParser(types: List[String]) extends RegexParsers {
 
   val attribute = "readonly"
   val attributes = opt(attribute) ~ "attribute"
-  val implementation = identifier ~ "implements" ~ identifier ^^ { case i ~ "implements" ~ t => Implementation(i, t) }
+  val implementation = jsType ~ "implements" ~ jsType ^^ { case i ~ "implements" ~ t => Implementation(i, t) }
 
 
   val packageProperty = attributes ~> jsType ~ identifier ^^ { case t ~ i => PackageProperty(i, t) }
@@ -105,20 +108,34 @@ object WebIDLConverter {
   def indent()(implicit level: IndentLevel) = "  " * level
 
   def transform(token: Token)(implicit level: IndentLevel = 0): String = token match {
+    case Type(name: String, true, isOptional: Boolean) => s"$name[]"
+
+    case Type(name: String, false, isOptional: Boolean) => name
+
     case Module(name: String, lines: List[ModuleElements]) => transformLines(lines)(-1)
     // -1 here is a workaround to fix the indentation of our collapsed "module" structure. Modules are not
     // supported by this converter, and were removed in later versions of the WebIDL spec, so this seems
     // reasonable enough.
 
     case Typedef(t1: JSType, t2: ExtendedType) => s"""${indent}interface $t2 extends $t1 {}"""
-    case Implementation(name: String, t: JSType) => s"""${indent}interface $name extends $t {}"""
-    case Package(name, lines, None) => s"""interface $name {\n${transformLines(lines)}\n}\n"""
-    case Package(name, lines, Some(t)) => s"""interface $name extends $t {\n${transformLines(lines)}\n}\n"""
+
+    case Implementation(name: Type, t: Type) => s"""${indent}interface ${transform(name)} extends ${transform(t)} {}"""
+
+    case Package(name: Type, lines: List[PackageElements], None) => s"""interface ${transform(name)} {\n${transformLines(lines)}\n}\n"""
+
+    case Package(name: Type, lines: List[PackageElements], Some(t: Type)) => s"""interface ${transform(name)} extends ${transform(t)} {\n${transformLines(lines)}\n}\n"""
+
     case Enum(name: String, enums: List[String]) => s"""declare enum $name { ${enums.mkString(", ")} }"""
+
     case Const(name: String, t: JSType, value: String) => s"""$indent$name: $t; // $value"""
-    case Method(name: String, args: List[MethodArgument], t: JSType) => s"""$indent$name(${args.map(transform).mkString(", ")}): $t;"""
-    case MethodArgument(name: String, t: JSType) => s"$name: $t"
-    case PackageProperty(name: String, t: JSType) => s"$indent$name: $t;"
+
+    case Method(name: String, args: List[MethodArgument], t: Type) => s"""$indent$name(${args.map(transform).mkString(", ")}): ${transform(t)};"""
+
+    case MethodArgument(name: String, t@Type(_, _, true)) => s"""$name?: ${transform(t)}"""
+
+    case MethodArgument(name: String, t@Type(_, _, false)) => s"""$name: ${transform(t)}"""
+
+    case PackageProperty(name: String, t: Type) => s"$indent$name: ${transform(t)};"
   }
 }
 
