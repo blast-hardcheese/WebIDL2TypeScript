@@ -143,7 +143,11 @@ object WebIDLConverter {
   def indent()(implicit level: IndentLevel) = "  " * level
 
   def transform(token: Token)(implicit level: IndentLevel = 0): String = token match {
-    case Module(name: String, lines: List[ModuleElements]) => transformLines(lines)
+    case Module(name: String, lines: List[ModuleElements]) => transformLines(lines)(-1)
+    // -1 here is a workaround to fix the indentation of our collapsed "module" structure. Modules are not
+    // supported by this converter, and were removed in later versions of the WebIDL spec, so this seems
+    // reasonable enough.
+
     case Typedef(t1: JSType, t2: ExtendedType) => s"""${indent}interface $t2 extends $t1 {}"""
     case Implementation(name: String, t: JSType) => s"""${indent}interface $name extends $t {}"""
     case Package(name, lines, None) => s"""interface $name {\n${transformLines(lines)}\n}\n"""
