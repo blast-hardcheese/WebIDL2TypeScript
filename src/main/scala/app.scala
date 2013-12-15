@@ -33,7 +33,7 @@ class DocParser(types: List[String]) extends RegexParsers {
 
   val jsString = "DOMString" ^^ { _ => "String" }
   val jsNumber = (opt("unsigned") ~ ("short" | "double" | "long" | "int")) ^^ { _ => "Number" }
-  val jsPassthrough = "void" | "boolean" | "Date"
+  val jsPassthrough = "void" | "boolean" | "Date" | "Window"
 
   val builtinType = jsString | jsNumber | jsPassthrough
 
