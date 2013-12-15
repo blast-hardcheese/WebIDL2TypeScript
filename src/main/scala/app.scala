@@ -76,7 +76,10 @@ class DocParser(types: List[String]) extends RegexParsers {
   def rawApply(input: String) = parseAll(module, input)
   def apply(input: String) = parseAll(module, input) match {
     case Success(result, _) => result
-    case failure : NoSuccess => scala.sys.error(failure.msg)
+    case failure : NoSuccess => {
+      println(failure)
+      scala.sys.error(failure.msg)
+    }
   }
 }
 
