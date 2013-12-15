@@ -2,7 +2,7 @@ import util.parsing.combinator.RegexParsers
 
 object Types {
   type JSType = String
-  type TizenType = String
+  type ExtendedType = String
 }
 
 import Types._
@@ -15,7 +15,7 @@ case class Method(name: String, args: List[MethodArgument], t: JSType) extends P
 case class Module(name: String, lines: List[ModuleElements]) extends Token
 
 sealed trait ModuleElements extends Token
-case class Typedef(t1: JSType, t2: TizenType) extends ModuleElements
+case class Typedef(t1: JSType, t2: ExtendedType) extends ModuleElements
 case class Package(name: String, lines: List[PackageElements], extend: Option[String]) extends ModuleElements
 case class Implementation(name: String, t: JSType) extends ModuleElements
 case class Enum(name: String, defs: List[String]) extends ModuleElements
@@ -35,7 +35,7 @@ object DocParser extends RegexParsers {
 
   val builtinType = jsString | jsNumber | jsPassthrough
 
-  val tizenType =
+  val extendedType =
     "any" |
     "AbstractFilter" |
     "AttributeFilter" |
@@ -78,7 +78,7 @@ object DocParser extends RegexParsers {
     "TizenObject" |
     "Tizen"
 
-  val jsType = (builtinType | tizenType) ~ opt("[]") <~ opt("?") ^^ {
+  val jsType = (builtinType | extendedType) ~ opt("[]") <~ opt("?") ^^ {
     case t ~ None => t
     case t ~ Some(a) => t + a
   }
@@ -87,7 +87,7 @@ object DocParser extends RegexParsers {
   val enumString = "\"[A-Z_]+\"".r
   val enum = "enum" ~> identifier ~ "{" ~ repsep(enumString, ",") ~ "}" ^^ { case name ~ "{" ~ defs ~ "}" => Enum(name, defs) }
   val const = "const" ~> jsNumber ~ identifier ~ "=" ~ number ^^ { case t ~ name ~ "=" ~ num => Const(name, t, num) }
-  val typedef = "typedef" ~> builtinType ~ tizenType ^^ { case t ~ i => Typedef(t, i) }
+  val typedef = "typedef" ~> builtinType ~ extendedType ^^ { case t ~ i => Typedef(t, i) }
 
   val attribute = "readonly"
   val attributes = opt(attribute) ~ "attribute"
@@ -143,7 +143,7 @@ object App extends App {
 
   def transform(token: Token)(implicit level: IndentLevel = 0): String = token match {
     case Module(name: String, lines: List[ModuleElements]) => transformLines(lines)
-    case Typedef(t1: JSType, t2: TizenType) => s"""${indent}interface $t2 extends $t1 {}"""
+    case Typedef(t1: JSType, t2: ExtendedType) => s"""${indent}interface $t2 extends $t1 {}"""
     case Implementation(name: String, t: JSType) => s"""${indent}interface $name extends $t {}"""
     case Package(name, lines, None) => s"""interface $name {\n${transformLines(lines)}\n}\n"""
     case Package(name, lines, Some(t)) => s"""interface $name extends $t {\n${transformLines(lines)}\n}\n"""
