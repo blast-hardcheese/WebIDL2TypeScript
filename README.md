@@ -2,6 +2,7 @@ WebIDL to TypeScript converter
 ==============================
 
 Created during the [#TizenLA](https://twitter.com/search?q=%23TizenLA) Hackathon at [#CrossCampusLA](https://twitter.com/search?q=%23CrossCampusLA).
+This parser was based on the [W3C Working Draft 27 September 2011](http://www.w3.org/TR/2011/WD-WebIDL-20110927/), in an attempt to parse the WebIDL included in Tizen 2.2.1.
 
 ## Sample input WebIDL
 (Taken from the Tizen API reference)
