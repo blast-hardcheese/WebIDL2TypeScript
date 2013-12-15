@@ -121,8 +121,7 @@ object DocParser extends RegexParsers {
   }
 }
 
-
-object App extends App {
+object Implicits {
   implicit class RichFile( file: java.io.File ) {
     def text = io.Source.fromFile( file )(io.Codec.UTF8).mkString
 
@@ -132,7 +131,9 @@ object App extends App {
       finally{ out.close }
     }
   }
+}
 
+object WebIDLConverter {
   type IndentLevel = Int
 
   def transformLines(lines: List[Token])(implicit level: IndentLevel): String = {
@@ -153,18 +154,16 @@ object App extends App {
     case MethodArgument(name: String, t: JSType) => s"$name: $t"
     case PackageProperty(name: String, t: JSType) => s"$indent$name: $t;"
   }
+}
+
+object App extends App {
+  import Implicits._
 
   for(arg <- args) {
     val s = io.Source.fromFile(new java.io.File(arg)).getLines.mkString("\n")
 
-    println(DocParser.rawApply(s))
-
     val parsed = DocParser(s)
-
-    println(parsed)
-    println
-
-    val out = transform(parsed)
+    val out = WebIDLConverter.transform(parsed)
 
     println(out)
 
