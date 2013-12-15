@@ -152,7 +152,7 @@ object WebIDLConverter {
     case Implementation(name: String, t: JSType) => s"""${indent}interface $name extends $t {}"""
     case Package(name, lines, None) => s"""interface $name {\n${transformLines(lines)}\n}\n"""
     case Package(name, lines, Some(t)) => s"""interface $name extends $t {\n${transformLines(lines)}\n}\n"""
-    case Enum(name: String, enums: List[String]) => s"""declare enum $name { ${enums.mkString(", ")} }""" // TODO: Figure out a way to infer the type here
+    case Enum(name: String, enums: List[String]) => s"""declare enum $name { ${enums.mkString(", ")} }"""
     case Const(name: String, t: JSType, value: String) => s"""$indent$name: $t; // $value"""
     case Method(name: String, args: List[MethodArgument], t: JSType) => s"""$indent$name(${args.map(transform).mkString(", ")}): $t;"""
     case MethodArgument(name: String, t: JSType) => s"$name: $t"
